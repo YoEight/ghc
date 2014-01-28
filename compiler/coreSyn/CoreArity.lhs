@@ -1129,6 +1129,15 @@ callArityAnal arity int (Lam v e)
   where
     (ae, e') = callArityAnal (arity - 1) int e
 
+-- Boring non-recursive let, i.e. no eta expansion possible. do not be smart about this
+callArityAnal arity int (Let (NonRec v rhs) e)
+    | exprArity rhs >= length (typeArity (idType v))
+    = (ae_final, Let (NonRec v rhs') e')
+  where
+    (ae_rhs, rhs') = callArityAnal 0 int rhs
+    (ae_body, e')  = callArityAnal arity int e
+    ae_final = forgetTailCalls ae_rhs `lubEnv` ae_body
+
 -- Non-recursive let. Find out how the body calls the rhs, analise that,
 -- and combine the results, convervatively using both
 callArityAnal arity int (Let (NonRec v rhs) e)
@@ -1157,6 +1166,15 @@ callArityAnal arity int (Let (NonRec v rhs) e)
     (ae_body, e') = callArityAnal arity int_body e
     ae_body' = ae_body `delVarEnv` v
     rhs_arity = lookupWithDefaultVarEnv ae_body Nothing v
+
+-- Boring recursive let, i.e. no eta expansion possible. do not be smart about this
+callArityAnal arity int (Let (Rec [(v,rhs)]) e)
+    | exprArity rhs >= length (typeArity (idType v))
+    = (ae_final, Let (Rec [(v,rhs')]) e')
+  where
+    (ae_rhs, rhs') = callArityAnal 0 int rhs
+    (ae_body, e')  = callArityAnal arity int e
+    ae_final = forgetTailCalls ae_rhs `lubEnv` ae_body
 
 -- Recursive let. Again, find out how the body calls the rhs, analise that,
 -- but then check if it is compatible with how rhs calls itself. If not,
