@@ -1203,7 +1203,7 @@ callArityAnal arity int (App e1 e2)
   where
     (ae1, e1') = callArityAnal (arity + 1) int e1
     (ae2, e2') = callArityAnal 0           int e2
-    final_ae = ae1 `lubEnv` forgetTailCalls ae2
+    final_ae = ae1 `useBetterOf` ae2
 
 -- Case expression. Here we decide whether
 -- we want to look at calls from the scrunitee or the alternatives;
@@ -1215,12 +1215,12 @@ callArityAnal arity int (Case scrut bndr ty alts)
       --          (vcat [ppr scrut, ppr final_ae])
       (final_ae, Case scrut' bndr ty alts')
   where
-    (aes, alts') = unzip $ map go alts
+    (alt_aes, alts') = unzip $ map go alts
     go (dc, bndrs, e) = let (ae, e') = callArityAnal arity int e
                         in  (ae, (dc, bndrs, e'))
-    (ae, scrut') = callArityAnal 0 int scrut
-    final_ae | anyTailCalls ae = foldl lubEnv ae $ map forgetTailCalls aes
-             | otherwise       = foldl lubEnv (forgetTailCalls ae) aes
+    alt_ae = foldl lubEnv emptyVarEnv alt_aes
+    (scrut_ae, scrut') = callArityAnal 0 int scrut
+    final_ae = scrut_ae `useBetterOf` alt_ae
 
 callArityFix :: Arity -> VarSet -> Id -> CoreExpr -> (CallArityEnv, Maybe Arity, CoreExpr)
 callArityFix arity int v e
@@ -1245,6 +1245,10 @@ anyTailCalls = foldVarEnv ((||) . isJust) False
 
 forgetTailCalls :: VarEnv (Maybe Arity) -> VarEnv (Maybe Arity)
 forgetTailCalls = mapVarEnv (const Nothing)
+
+useBetterOf :: CallArityEnv -> CallArityEnv -> CallArityEnv
+useBetterOf ae1 ae2 | anyTailCalls ae1 = ae1 `lubEnv` forgetTailCalls ae2
+useBetterOf ae1 ae2 | otherwise        = forgetTailCalls ae1 `lubEnv` ae2
 
 -- Used when combining results from alternative cases; take the minimum
 lubEnv :: CallArityEnv -> CallArityEnv -> CallArityEnv
