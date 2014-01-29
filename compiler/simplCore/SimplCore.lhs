@@ -115,6 +115,7 @@ getCoreToDo dflags
     phases        = simplPhases        dflags
     max_iter      = maxSimplIterations dflags
     rule_check    = ruleCheck          dflags
+    call_arity    = gopt Opt_CallArity                    dflags
     strictness    = gopt Opt_Strictness                   dflags
     full_laziness = gopt Opt_FullLaziness                 dflags
     do_specialise = gopt Opt_Specialise                   dflags
@@ -259,8 +260,10 @@ getCoreToDo dflags
                 -- Don't stop now!
         simpl_phase 0 ["main"] (max max_iter 3),
 
-        CoreDoCallArity,
-        simpl_phase 0 ["post-call-arity"] (max max_iter 3),
+        runWhen call_arity $ CoreDoPasses
+            [ CoreDoCallArity
+            , simpl_phase 0 ["post-call-arity"] max_iter
+            ],
 
         runWhen strictness demand_analyser,
 

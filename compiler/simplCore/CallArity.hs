@@ -112,7 +112,7 @@ callArityAnal 0     int (Lam v e)
     = (ae', Lam v e')
   where
     (ae, e') = callArityAnal 0 int e
-    ae' = forgetTailCalls ae
+    ae' = forgetGoodCalls ae
 -- We have a lambda that we are calling. decrease arity.
 callArityAnal arity int (Lam v e)
     = (ae, Lam v e')
