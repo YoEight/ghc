@@ -38,7 +38,7 @@ module IdInfo (
 	unknownArity, 
 	arityInfo, setArityInfo, ppArityInfo, 
 
-        calledArityInfo, setCalledArityInfo,
+        callArityInfo, setCallArityInfo,
 
 	-- ** Demand and strictness Info
  	strictnessInfo, setStrictnessInfo, 
@@ -207,7 +207,7 @@ data IdInfo
         strictnessInfo  :: StrictSig,      --  ^ A strictness signature
 
         demandInfo      :: Demand,       -- ^ ID demand information
-        calledArityInfo :: !ArityInfo    -- ^ How this is called.
+        callArityInfo :: !ArityInfo    -- ^ How this is called.
                                          -- n <=> all calls have at least n arguments
     }
 
@@ -267,8 +267,8 @@ setUnfoldingInfo info uf
 
 setArityInfo :: IdInfo -> ArityInfo -> IdInfo
 setArityInfo	  info ar  = info { arityInfo = ar  }
-setCalledArityInfo :: IdInfo -> ArityInfo -> IdInfo
-setCalledArityInfo info ar  = info { calledArityInfo = ar  }
+setCallArityInfo :: IdInfo -> ArityInfo -> IdInfo
+setCallArityInfo info ar  = info { callArityInfo = ar  }
 setCafInfo :: IdInfo -> CafInfo -> IdInfo
 setCafInfo        info caf = info { cafInfo = caf }
 
@@ -297,7 +297,7 @@ vanillaIdInfo
 	    occInfo		= NoOccInfo,
             demandInfo	        = topDmd,
 	    strictnessInfo      = nopSig,
-	    calledArityInfo     = unknownArity
+	    callArityInfo     = unknownArity
 	   }
 
 -- | More informative 'IdInfo' we can use when we know the 'Id' has no CAF references

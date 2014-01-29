@@ -377,7 +377,7 @@ ppIdInfo id info
     showAttributes
     [ (True, pp_scope <> ppr (idDetails id))
     , (has_arity,        ptext (sLit "Arity=") <> int arity)
-    , (has_called_arity, ptext (sLit "CalledArity=") <> int called_arity)
+    , (has_called_arity, ptext (sLit "CallArity=") <> int called_arity)
     , (has_caf_info,     ptext (sLit "Caf=") <> ppr caf_info)
     , (True,             ptext (sLit "Str=") <> pprStrictness str_info)
     , (has_unf,          ptext (sLit "Unf=") <> ppr unf_info)
@@ -393,7 +393,7 @@ ppIdInfo id info
     arity = arityInfo info
     has_arity = arity /= 0
 
-    called_arity = calledArityInfo info
+    called_arity = callArityInfo info
     has_called_arity = called_arity /= 0
 
     caf_info = cafInfo info
