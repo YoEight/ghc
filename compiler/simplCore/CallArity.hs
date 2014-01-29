@@ -126,7 +126,7 @@ callArityAnal arity int (Let (NonRec v rhs) e)
   where
     (ae_rhs, rhs') = callArityAnal 0 int rhs
     (ae_body, e')  = callArityAnal arity int e
-    ae_final = forgetTailCalls ae_rhs `lubEnv` ae_body
+    ae_final = forgetGoodCalls ae_rhs `lubEnv` ae_body
 
 -- Non-recursive let. Find out how the body calls the rhs, analise that,
 -- and combine the results, convervatively using both
@@ -146,7 +146,7 @@ callArityAnal arity int (Let (NonRec v rhs) e)
     -- tail-call information from there
     | otherwise
     = let (ae_rhs, rhs') = callArityAnal 0 int rhs
-          final_ae = forgetTailCalls ae_rhs `lubEnv` ae_body'
+          final_ae = forgetGoodCalls ae_rhs `lubEnv` ae_body'
           v'             = v `setIdCallArity` 0
       in -- pprTrace "callArityAnal:LetNonRecNonTailCall"
          --          (vcat [ppr v, ppr arity, ppr final_ae ])
@@ -164,7 +164,7 @@ callArityAnal arity int (Let (Rec [(v,rhs)]) e)
   where
     (ae_rhs, rhs') = callArityAnal 0 int rhs
     (ae_body, e')  = callArityAnal arity int e
-    ae_final = forgetTailCalls ae_rhs `lubEnv` ae_body
+    ae_final = forgetGoodCalls ae_rhs `lubEnv` ae_body
 
 -- Recursive let. Again, find out how the body calls the rhs, analise that,
 -- but then check if it is compatible with how rhs calls itself. If not,
@@ -183,7 +183,7 @@ callArityAnal arity int (Let (Rec [(v,rhs)]) e)
     -- tail-call information from there. No need to iterate there.
     | otherwise
     = let (ae_rhs, rhs') = callArityAnal 0 int_body rhs
-          final_ae = forgetTailCalls ae_rhs `lubEnv` ae_body'
+          final_ae = forgetGoodCalls ae_rhs `lubEnv` ae_body'
           v'             = v `setIdCallArity` 0
       in -- pprTrace "callArityAnal:LetRecNonTailCall"
          --          (vcat [ppr v, ppr arity, ppr final_ae ])
@@ -200,7 +200,7 @@ callArityAnal arity int (Let (Rec binds) e)
   where
     (aes, binds') = unzip $ map go binds
     go (i,e) = let (ae,e') = callArityAnal 0 int e
-               in (forgetTailCalls ae, (i,e'))
+               in (forgetGoodCalls ae, (i,e'))
     (ae, e') = callArityAnal arity int e
     final_ae = foldl lubEnv ae aes
 
@@ -248,19 +248,17 @@ callArityFix arity int v e
     new_arity = lookupWithDefaultVarEnv ae Nothing v
 
 
-anyTailCalls :: VarEnv (Maybe Arity) -> Bool
-anyTailCalls = foldVarEnv ((||) . isJust) False
+anyGoodCalls :: VarEnv (Maybe Arity) -> Bool
+anyGoodCalls = foldVarEnv ((||) . isJust) False
 
-forgetTailCalls :: VarEnv (Maybe Arity) -> VarEnv (Maybe Arity)
-forgetTailCalls = mapVarEnv (const Nothing)
+forgetGoodCalls :: VarEnv (Maybe Arity) -> VarEnv (Maybe Arity)
+forgetGoodCalls = mapVarEnv (const Nothing)
 
 useBetterOf :: CallArityEnv -> CallArityEnv -> CallArityEnv
-useBetterOf ae1 ae2 | anyTailCalls ae1 = ae1 `lubEnv` forgetTailCalls ae2
-useBetterOf ae1 ae2 | otherwise        = forgetTailCalls ae1 `lubEnv` ae2
+useBetterOf ae1 ae2 | anyGoodCalls ae1 = ae1 `lubEnv` forgetGoodCalls ae2
+useBetterOf ae1 ae2 | otherwise        = forgetGoodCalls ae1 `lubEnv` ae2
 
 -- Used when combining results from alternative cases; take the minimum
 lubEnv :: CallArityEnv -> CallArityEnv -> CallArityEnv
 lubEnv = plusVarEnv_C min
-
-
 
