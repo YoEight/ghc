@@ -16,8 +16,7 @@ import Id
 import CoreArity
 
 import Control.Arrow ( second )
-import Data.Maybe ( fromMaybe, isJust )
-
+import Data.Maybe ( isJust )
 
 
 {-
@@ -175,7 +174,7 @@ callArityAnal arity int (Let (Rec [(v,rhs)]) e)
     | Just n <- rhs_arity
     = let (ae_rhs, rhs_arity', rhs') = callArityFix n int_body v rhs
           final_ae = ae_rhs `lubEnv` ae_body'
-          v'             = v `setIdCallArity` fromMaybe 0 rhs_arity'
+          v'             = v `setIdCallArity` rhs_arity'
       in -- pprTrace "callArityAnal:LetRecTailCall"
          --          (vcat [ppr v, ppr arity, ppr n, ppr rhs_arity', ppr final_ae ])
          (final_ae, Let (Rec [(v',rhs')]) e')
@@ -228,24 +227,35 @@ callArityAnal arity int (Case scrut bndr ty alts)
                         in  (ae, (dc, bndrs, e'))
     alt_ae = foldl lubEnv emptyVarEnv alt_aes
     (scrut_ae, scrut') = callArityAnal 0 int scrut
+    -- See Note [Case and App: Which side to take?]
     final_ae = scrut_ae `useBetterOf` alt_ae
 
-callArityFix :: Arity -> VarSet -> Id -> CoreExpr -> (CallArityEnv, Maybe Arity, CoreExpr)
+callArityFix :: Arity -> VarSet -> Id -> CoreExpr -> (CallArityEnv, Arity, CoreExpr)
 callArityFix arity int v e
-    | Nothing <- new_arity
-    -- Not tail recusive, rerun with arity 0 and bail out
-    -- (Or not recursive at all, but that was hopefully handled by the simplifier before)
-    = let (ae, e') = callArityAnal 0 int e
-      in (forgetTailCalls ae `delVarEnv` v, Nothing, e')
-    | Just n <- new_arity, n < arity
-    -- Retry
-    = callArityFix n int v e
+
+    | arity <= min_arity
+    -- The incoming arity is already lower than the exprArity, so we can
+    -- ignore the arity coming from the RHS
+    = (ae `delVarEnv` v, 0, e')
+
     | otherwise
-    -- RHS calls itself with at least as many arguments as the body of the let
-    = (ae `delVarEnv` v, new_arity, e')
+    = case new_arity of
+        -- Not nicely recursive, rerun with arity 0
+        -- (which will do at most one iteration, see above)
+        -- (Or not recursive at all, but that was hopefully handled by the simplifier before)
+        Nothing -> callArityFix 0 int v e
+
+        Just n -> if n < arity
+            -- RHS puts a lower arity on itself, but still a nice call, so try with that
+            then callArityFix n int v e
+
+            -- RHS calls itself with at least as many arguments as the body of
+            -- the let: Great!
+            else (ae `delVarEnv` v, n, e')
   where
     (ae, e') = callArityAnal arity int e
     new_arity = lookupWithDefaultVarEnv ae Nothing v
+    min_arity = exprArity e
 
 
 anyGoodCalls :: VarEnv (Maybe Arity) -> Bool
