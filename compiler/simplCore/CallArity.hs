@@ -309,7 +309,8 @@ callArityAnal arity int (Let (NonRec v rhs) e)
   where
     (ae_rhs, rhs') = callArityAnal 0 int rhs
     (ae_body, e')  = callArityAnal arity int e
-    ae_final = forgetGoodCalls ae_rhs `lubEnv` ae_body
+    ae_body' = ae_body `delVarEnv` v
+    ae_final = forgetGoodCalls ae_rhs `lubEnv` ae_body'
 
 -- Non-recursive let. Find out how the body calls the rhs, analise that,
 -- and combine the results, convervatively using both
@@ -347,7 +348,7 @@ callArityAnal arity int (Let (Rec [(v,rhs)]) e)
   where
     (ae_rhs, rhs') = callArityAnal 0 int rhs
     (ae_body, e')  = callArityAnal arity int e
-    ae_final = forgetGoodCalls ae_rhs `lubEnv` ae_body
+    ae_final = (forgetGoodCalls ae_rhs `lubEnv` ae_body) `delVarEnv` v
 
 -- Recursive let.
 -- See Note [Recursion and fixpointing]
@@ -356,7 +357,7 @@ callArityAnal arity int (Let (Rec [(v,rhs)]) e)
     -- tail-call for everything
     | Just n <- rhs_arity
     = let (ae_rhs, rhs_arity', rhs') = callArityFix n int_body v rhs
-          final_ae = ae_rhs `lubEnv` ae_body'
+          final_ae = (ae_rhs `lubEnv` ae_body) `delVarEnv` v
           v'             = v `setIdCallArity` rhs_arity'
       in -- pprTrace "callArityAnal:LetRecTailCall"
          --          (vcat [ppr v, ppr arity, ppr n, ppr rhs_arity', ppr final_ae ])
@@ -365,7 +366,7 @@ callArityAnal arity int (Let (Rec [(v,rhs)]) e)
     -- tail-call information from there. No need to iterate there.
     | otherwise
     = let (ae_rhs, rhs') = callArityAnal 0 int_body rhs
-          final_ae = forgetGoodCalls ae_rhs `lubEnv` ae_body'
+          final_ae = (forgetGoodCalls ae_rhs `lubEnv` ae_body) `delVarEnv` v
           v'             = v `setIdCallArity` 0
       in -- pprTrace "callArityAnal:LetRecNonTailCall"
          --          (vcat [ppr v, ppr arity, ppr final_ae ])
@@ -373,7 +374,6 @@ callArityAnal arity int (Let (Rec [(v,rhs)]) e)
   where
     int_body = int `extendVarSet` v
     (ae_body, e') = callArityAnal arity int_body e
-    ae_body' = ae_body `delVarEnv` v
     rhs_arity = lookupWithDefaultVarEnv ae_body Nothing v
 
 -- Mutual recursion. Do nothing serious here, for now
@@ -384,7 +384,7 @@ callArityAnal arity int (Let (Rec binds) e)
     go (i,e) = let (ae,e') = callArityAnal 0 int e
                in (forgetGoodCalls ae, (i,e'))
     (ae, e') = callArityAnal arity int e
-    final_ae = foldl lubEnv ae aes
+    final_ae = foldl lubEnv ae aes `delVarEnvList` map fst binds
 
 -- Application. Increase arity for the called expresion, nothing to know about
 -- the second
