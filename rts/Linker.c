@@ -917,6 +917,7 @@ typedef struct _RtsSymbolVal {
 #define RTS_TICKY_SYMBOLS                               \
       SymI_NeedsProto(ticky_entry_ctrs)                 \
       SymI_NeedsProto(top_ct)                           \
+      SymI_NeedsProto(ticky_histo_vals)                 \
                                                         \
       SymI_HasProto(ENT_VIA_NODE_ctr)                   \
       SymI_HasProto(ENT_STATIC_THK_SINGLE_ctr)          \

@@ -30,6 +30,7 @@
 #if IN_STG_CODE
 extern W_ ticky_entry_ctrs[];
 extern W_ top_ct[];
+extern W_ ticky_histo_vals[];
 #endif
 
 /* The rest are not explicity declared in rts/Ticky.c.  Instead
